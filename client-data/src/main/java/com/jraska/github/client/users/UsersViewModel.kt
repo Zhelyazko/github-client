@@ -8,30 +8,33 @@ import com.jraska.github.client.analytics.AnalyticsEvent
 import com.jraska.github.client.analytics.EventAnalytics
 import com.jraska.github.client.rx.AppSchedulers
 import com.jraska.github.client.rx.RxLiveData
+import io.reactivex.Observable
 import io.reactivex.Single
 import io.reactivex.SingleEmitter
 import io.reactivex.SingleOnSubscribe
 import java.util.concurrent.atomic.AtomicBoolean
 
 class UsersViewModel internal constructor(
-  private val usersRepository: UsersRepository, private val appSchedulers: AppSchedulers,
-  private val navigator: Navigator, private val eventAnalytics: EventAnalytics) : ViewModel() {
+  private val usersRepository: UsersRepository,
+  private val appSchedulers: AppSchedulers,
+  private val navigator: Navigator,
+  private val eventAnalytics: EventAnalytics) : ViewModel() {
 
-  private val users: RxLiveData<ViewState>
+  private val users: RxLiveData<ViewState<List<User>>>
   private var refreshingCache: OnSubscribeRefreshingCache<List<User>>? = null
 
   init {
 
-    val viewStateObservable = usersInternal()
-      .map { data -> ViewState(null, data) }
-      .onErrorReturn { error -> ViewState(error, null) }
+    val viewStateObservable: Observable<ViewState<List<User>>> = usersInternal()
+      .map { data -> ViewState.Success(data) as ViewState<List<User>>}
+      .onErrorReturn { error -> ViewState.Error(error) }
       .toObservable()
-      .startWith(ViewState(null, null))
+      .startWith(ViewState.Loading())
 
     users = RxLiveData.from(viewStateObservable)
   }
 
-  fun users(): LiveData<ViewState> {
+  fun users(): LiveData<ViewState<List<User>>> {
     return users
   }
 
@@ -75,18 +78,10 @@ class UsersViewModel internal constructor(
     navigator.showSettings()
   }
 
-  class ViewState(private val error: Throwable?, private val result: List<User>?) {
-
-    val isLoading: Boolean
-      get() = result == null && error == null
-
-    fun error(): Throwable? {
-      return error
-    }
-
-    fun result(): List<User>? {
-      return result
-    }
+  sealed class ViewState<out T> {
+    class Loading<out T> : ViewState<T>()
+    class Success<out T>(val item: T) : ViewState<T>()
+    class Error<out T>(val error: Throwable) : ViewState<T>()
   }
 
   class OnSubscribeRefreshingCache<T>(private val source: Single<T>) : SingleOnSubscribe<T> {

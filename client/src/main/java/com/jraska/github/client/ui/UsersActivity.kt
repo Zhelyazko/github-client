@@ -59,17 +59,17 @@ class UsersActivity : BaseActivity(), UserModel.UserListener {
     usersViewModel.onUserGitHubIconClicked(user)
   }
 
-  private fun setState(state: UsersViewModel.ViewState) {
-    if (state.isLoading) {
-      showProgressIndicator()
-    } else {
-      hideProgressIndicator()
-    }
-
-    if (state.error() != null) {
-      showError(state.error()!!)
-    } else if (state.result() != null) {
-      setUsers(state.result()!!)
+  private fun setState(state: UsersViewModel.ViewState<List<User>>) {
+    when (state) {
+      is UsersViewModel.ViewState.Loading -> showProgressIndicator()
+      is UsersViewModel.ViewState.Error -> {
+        showError(state.error)
+        hideProgressIndicator()
+      }
+      is UsersViewModel.ViewState.Success -> {
+        setUsers(state.item)
+        hideProgressIndicator()
+      }
     }
   }
 
